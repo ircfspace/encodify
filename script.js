@@ -1,104 +1,44 @@
+// Short words (2-3 chars) to save SMS space.
 const WORDS = [
-  "آب",
-  "آسمان",
-  "آتش",
-  "ابر",
-  "امید",
-  "انسان",
-  "ایران",
-  "باد",
-  "باران",
-  "باغ",
-  "برف",
-  "بهار",
-  "پرواز",
-  "پنجره",
-  "پیام",
-  "تلاش",
-  "توسعه",
-  "جاده",
-  "جهان",
-  "حقیقت",
-  "خورشید",
-  "دریا",
-  "درخت",
-  "دل",
-  "دوست",
-  "راه",
-  "رود",
-  "رویا",
-  "روز",
-  "زمان",
-  "زمین",
-  "زیبا",
-  "سفر",
-  "سلام",
-  "سنگ",
-  "سکوت",
-  "شادی",
-  "شب",
-  "صبح",
-  "صدا",
-  "طبیعت",
-  "طلوع",
-  "عشق",
-  "علم",
-  "فردا",
-  "فرصت",
-  "فصل",
-  "فکر",
-  "قلم",
-  "قلب",
-  "کار",
-  "کتاب",
-  "کوه",
-  "کودک",
-  "گل",
-  "لبخند",
-  "لحظه",
-  "مردم",
-  "مهر",
-  "مهتاب",
-  "موج",
-  "نور",
-  "نگاه",
-  "هدف",
-  "هوا",
-  "یاد",
+  "آب", "آر", "آن", "باد", "بار", "باز", "بام", "برگ", 
+  "بید", "پا", "پر", "پس", "پل", "پن", "پی", "تار", 
+  "تب", "تک", "تور", "تیر", "جا", "جم", "جو", "چین", 
+  "خاک", "خم", "خون", "داد", "دار", "در", "دم", "دی", 
+  "راز", "راه", "رخ", "رز", "رگ", "زن", "ساز", "سر", 
+  "سد", "سگ", "سنگ", "شب", "شط", "شک", "شهر", "شور", 
+  "صدا", "صف", "طاق", "طل", "ظن", "عاج", "عود", "فال", 
+  "فن", "قر", "قو", "کاخ", "کار", "کام", "کوه", "کی"
 ]; // 64 words => 6 bits
 
-const te = new TextEncoder(),
-  td = new TextDecoder();
 const $ = (id) => document.getElementById(id);
 const msg = $("msg");
 
-function ok(t) {
-  msg.textContent = "✔ " + t;
-}
-function err(t) {
-  msg.textContent = "❌ " + t;
-}
-function info(t) {
-  msg.textContent = "ℹ️ " + t;
+function info(t) { msg.textContent = "ℹ️ " + t; }
+function ok(t) { msg.textContent = "✔ " + t; }
+function err(t) { msg.textContent = "❌ " + t; }
+
+// XOR ENCRYPTION
+function xorTransform(bytes, keyString) {
+  if (!keyString) return bytes;
+  const keyBytes = new TextEncoder().encode(keyString);
+  return bytes.map((b, i) => b ^ keyBytes[i % keyBytes.length]);
 }
 
-// --- bit packing with LENGTH PREFIX ---
+// GZIP COMPRESSION
+async function compress(text) {
+  const stream = new Blob([text]).stream().pipeThrough(new CompressionStream("gzip"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+async function decompress(bytes) {
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return await new Response(stream).text();
+}
+
 function bytesToWords(bytes) {
-  const len = bytes.length >>> 0;
-  const prefix = new Uint8Array([
-    (len >>> 24) & 255,
-    (len >>> 16) & 255,
-    (len >>> 8) & 255,
-    len & 255,
-  ]);
-  const data = new Uint8Array(4 + bytes.length);
-  data.set(prefix, 0);
-  data.set(bytes, 4);
-
-  let bits = 0,
-    buf = 0,
-    res = [];
-  for (const b of data) {
+  let bits = 0, buf = 0, res = [];
+  // Use a simple terminator approach or just raw flow
+  for (const b of bytes) {
     buf = (buf << 8) | b;
     bits += 8;
     while (bits >= 6) {
@@ -113,14 +53,12 @@ function bytesToWords(bytes) {
 
 function wordsToBytes(text) {
   const tokens = text.trim().split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) throw Error("ورودی خالی است");
-
-  let bits = 0,
-    buf = 0,
-    out = [];
+  if (!tokens.length) throw Error("Empty input");
+  
+  let bits = 0, buf = 0, out = [];
   for (const w of tokens) {
     const i = WORDS.indexOf(w);
-    if (i < 0) throw Error("کلمه نامعتبر: " + w);
+    if (i < 0) throw Error("Invalid word: " + w);
     buf = (buf << 6) | i;
     bits += 6;
     while (bits >= 8) {
@@ -129,84 +67,69 @@ function wordsToBytes(text) {
       buf = buf & ((1 << bits) - 1);
     }
   }
-  const all = new Uint8Array(out);
-  if (all.length < 4) throw Error("داده کافی نیست");
-
-  const len = ((all[0] << 24) | (all[1] << 16) | (all[2] << 8) | all[3]) >>> 0;
-  const payload = all.slice(4);
-  if (payload.length < len)
-    throw Error("داده ناقص است (کلمات کم/زیاد شده یا دستکاری شده)");
-  return payload.slice(0, len);
+  return new Uint8Array(out);
 }
 
-// --- Actions ---
-// Encrypt: read plain(text) -> out(words)
 async function encrypt() {
-  msg.textContent = "";
-  const text = $("plain").value;
-  if (!text.trim()) {
-    $("out").value = "";
-    info("ورودی خالی است");
-    return;
+  try {
+    const text = $("plain").value.trim();
+    const pass = $("pass").value;
+    if (!text) return info("ورودی خالی است");
+
+    // Compress
+    let data = await compress(text);
+    // Encrypt
+    data = xorTransform(data, pass);
+    
+    const result = bytesToWords(data);
+    
+    $("out").value = result;
+    ok(`تبدیل شد! (${result.length} کاراکتر)`);
+  } catch (e) {
+    err(e.message);
   }
-  const key = $("pass").value || "";
-  const payload = JSON.stringify({ t: text, k: key });
-  $("out").value = bytesToWords(te.encode(payload));
-  ok("رمزنگاری انجام شد (ورودی → خروجی)");
 }
 
-// Decrypt: read plain(words) -> out(text)
 async function decrypt() {
-  msg.textContent = "";
-  const coded = $("plain").value;
-  if (!coded.trim()) {
-    $("out").value = "";
-    info("ورودی خالی است");
-    return;
-  }
-  const key = $("pass").value || "";
-  const decoded = td.decode(wordsToBytes(coded));
-
-  let obj;
   try {
-    obj = JSON.parse(decoded);
-  } catch (e) {
-    throw Error("ورودی معتبر نیست یا ناقص است");
-  }
+    const coded = $("out").value.trim(); 
+    const pass = $("pass").value;
+    const source = coded || $("plain").value.trim(); 
+    
+    if (!source) return info("ورودی خالی است");
 
-  if (obj.k && obj.k !== key) throw Error("کلید نادرست است");
-  $("out").value = obj.t ?? "";
-  ok("رمزگشایی انجام شد (ورودی → خروجی)");
+    let data = wordsToBytes(source);
+    data = xorTransform(data, pass);
+    
+    try {
+      const text = await decompress(data);
+      if(coded) $("plain").value = text; 
+      else $("out").value = text;
+      
+      ok("بازگشایی موفقیت‌آمیز بود");
+    } catch (e) {
+      throw Error("رمز اشتباه است یا داده خراب شده");
+    }
+  } catch (e) {
+    err(e.message);
+  }
+}
+
+function copyOut() {
+  const v = $("out").value;
+  if(v) navigator.clipboard.writeText(v).then(()=>info("کپی شد"));
 }
 
 function swap() {
-  [$("plain").value, $("out").value] = [$("out").value, $("plain").value];
-  info("جابجا شد");
+  const temp = $("plain").value;
+  $("plain").value = $("out").value;
+  $("out").value = temp;
 }
 
-async function copyOut() {
-  const v = $("out").value;
-  if (!v.trim()) {
-    info("چیزی برای کپی نیست");
-    return;
-  }
-  await navigator.clipboard.writeText(v);
-  info("کپی شد");
-}
-
-function clearForm() {
-  $("plain").value = "";
-  $("out").value = "";
-  $("pass").value = "";
-  info("فرم پاکسازی شد");
-}
-
-$("encBtn").addEventListener("click", () =>
-  encrypt().catch((e) => err(e.message))
-);
-$("decBtn").addEventListener("click", () =>
-  decrypt().catch((e) => err(e.message))
-);
+$("encBtn").addEventListener("click", encrypt);
+$("decBtn").addEventListener("click", decrypt);
 $("swapBtn").addEventListener("click", swap);
 $("copyBtn").addEventListener("click", copyOut);
-$("clearBtn").addEventListener("click", clearForm);
+$("clearBtn").addEventListener("click", () => {
+    $("plain").value = ""; $("out").value = ""; $("pass").value = ""; info("پاک شد");
+});
