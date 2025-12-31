@@ -69,6 +69,7 @@ label {
   width: 100%;
 }
 button {
+  font-family: Vazirmatn, system-ui;
   padding: 10px 14px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -111,4 +112,18 @@ button:hover {
 }
 .foot a {
   color: #fff;
+}
+
+.pass-area {
+  position: relative;
+}
+
+.pass-area button {
+  position: absolute;
+  top: 0.5rem;
+  left: 0;
+  transform: translateY(-50%);
+  padding: 6px 10px;
+  font-size: 14px;
+  background: #777;
 }
