@@ -1,87 +1,137 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
-  <head>
+<head>
     <meta charset="utf-8" />
     <title>Encodify | مخدوش‌گر</title>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="assets/css/style.css?v1.2" />
-  </head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b1220">
+    <link rel="manifest" href="manifest.json" />
+    <link rel="stylesheet" href="assets/css/style.css?v2.3" />
+</head>
   <body>
     <div class="wrap">
       <header class="head">
         <div>
-          <h1>مخدوش‌گر</h1>
+          <h1>مخدوش‌گر (Encodify)</h1>
           <p class="subtitle">
-            یک ابزار تحت وب مناسب ارسال امن‌تر در شرایط شنود یا محدودیت پیامکی،
-            که متن، لینک و کانفیگ‌ها را با کلید اختیاری به کلمات فارسی و ایموجی
-            تبدیل نموده و امکان بازگردانی مجدد آن‌را فراهم می‌کند.
+            ابزار امن‌سازی متن و فایل با تبدیل به کلمات فارسی و ایموجی.
+            مناسب برای عبور از فیلترهای حساس به محتوا.
           </p>
         </div>
+        <button id="installBtn" class="primary" style="display: none; margin-top: 10px;">
+          📲 نصب نسخه آفلاین
+        </button>
+        
         <div class="badges">
           <span class="badge">حروف معنادار فارسی</span>
           <span class="badge">ایموجی</span>
-          <span class="badge">فاقد عدد</span>
-          <span class="badge">فاقد کاراکترهای زائد</span>
+          <span class="badge">پشتیبانی فایل</span>
+          <span class="badge">آفلاین (PWA)</span>
           <span class="badge">کلید اختیاری</span>
         </div>
       </header>
 
-      <label for="plain">ورودی</label>
-      <textarea
-        id="plain"
-        placeholder="برای رمزنگاری: متن اصلی را اینجا بگذارید.
+      <!-- تب‌های ناوبری -->
+      <div class="tabs-container">
+        <button class="tab-btn active" data-target="tab-file">📂 عملیات فایل</button>
+        <button class="tab-btn" data-target="tab-text">📝 عملیات متن</button>
+      </div>
+
+      <label for="pass">کلید رمزنگاری (اختیاری)</label>
+      <div class="pass-wrapper">
+        <input id="pass" type="password" placeholder="اگر می‌خواهید رمز شود، اینجا کلید بگذارید." />
+        <button id="togglePass" type="button" tabindex="-1">👁️</button>
+      </div>
+
+      <!-- محتوای تب فایل -->
+      <div id="tab-file" class="tab-content active">
+        <div class="section-box">
+          <div class="separator-title">📂 فایل</div>
+          
+          <!-- ناحیه دراگ و دراپ -->
+          <div class="drop-zone" id="dropZone">
+            <span class="drop-icon">☁️</span>
+            <p class="drop-text">فایل را اینجا رها کنید یا کلیک کنید</p>
+            <input type="file" id="fileIn" hidden />
+            <div id="fileNameDisplay" class="file-name-display"></div>
+          </div>
+          
+          <!-- نوار پیشرفت -->
+          <div class="progress-container" id="progressContainer" style="display: none;">
+             <div class="progress-bar" id="progressBar"></div>
+             <span class="progress-text" id="progressText">0%</span>
+          </div>
+
+          <div class="buttons">
+            <button class="primary" id="fileEncBtn" title="فایل اصلی ← فایل متنی">
+              ⬇️ رمزنگاری و دانلود فایل
+            </button>
+            <button class="warning" id="fileDecBtn" title="فایل متنی ← فایل اصلی">
+              ⬇️ رمزگشایی و دانلود فایل
+            </button>
+          </div>
+          <p class="hint">نکته: فایل خروجی رمزنگاری شده، حجم بیشتری (حدود ۱ تا ۱.۵ برابر) نسبت به فایل اصلی خواهد داشت.</p>
+        </div>
+      </div>
+
+      <!-- محتوای تب متن -->
+      <div id="tab-text" class="tab-content">
+        <div class="section-box">
+          <div class="separator-title">📝 متن</div>
+          <label for="plain" style="margin-top:0;">ورودی متن</label>
+          <textarea
+            id="plain"
+            placeholder="برای رمزنگاری: متن اصلی را اینجا بگذارید.
 برای رمزگشایی: متن مخدوش‌شده را همینجا بچسبانید."
-      ></textarea>
+          ></textarea>
 
-      <label for="pass">کلید (اختیاری)</label>
-      <input id="pass" placeholder="اگر کلید دارد، اینجا وارد کنید." />
+          <div class="buttons">
+            <button class="primary" id="encBtn" title="متن → کلمات">
+              🔒 رمزنگاری متن
+            </button>
+            <button class="warning" id="decBtn" title="کلمات → متن">
+              🔓 رمزگشایی متن
+            </button>
+            <button id="swapBtn" title="جابجایی ورودی/خروجی">🔁 جابجایی</button>
+          </div>
 
-      <div class="buttons">
-        <button class="primary" id="encBtn" title="متن → کلمات">
-          🔒 رمزنگاری
-        </button>
-        <button class="warning" id="decBtn" title="کلمات → متن">
-          🔓 رمزگشایی
-        </button>
-        <button id="swapBtn" title="جابجایی ورودی/خروجی">🔁 جابجایی</button>
+          <label for="out">خروجی متن</label>
+          <textarea
+            id="out"
+            placeholder="نتیجه اینجا نمایش داده می‌شود ..."
+            readonly
+          ></textarea>
+
+          <div class="below">
+            <button id="copyBtn">📋 کپی خروجی</button>
+            <button id="shareBtn" class="secondary" style="display: none;">📤 اشتراک‌گذاری</button>
+            <button class="secondary" id="clearBtn">🧹 پاکسازی فرم</button>
+          </div>
+        </div>
       </div>
 
-      <label for="out">خروجی</label>
-      <textarea
-        id="out"
-        placeholder="نتیجه اینجا نمایش داده می‌شود ..."
-      ></textarea>
-
-      <div class="below">
-        <button id="copyBtn">📋 کپی خروجی</button>
-        <button class="secondary" id="clearBtn">🧹 پاکسازی فرم</button>
-      </div>
-
-      <div id="msg" class="msg"></div>
+      <!-- کانتینر Toast ها -->
+      <div id="toast-container"></div>
 
       <footer class="foot">
-        تهیه شده توسط <a href="https://ircf.space" target="_blank">IRCF</a
-        ><br />
-        تقدیم به مردم شریف ایران
+        تهیه شده توسط <a href="https://ircf.space" target="_blank">IRCF</a><br />
+        توسعه یافته نسخه ۲.۲ + آفلاین
         <br />
         <br />
         <span dir="ltr">
           <a
             class="github-button"
-            href="https://github.com/ircfspace/encodify"
+            href="https://github.com/DanTch/encodify_V2"
             data-color-scheme="no-preference: light; light: light; dark: dark;"
             data-icon="octicon-star"
             data-show-count="true"
-            aria-label="Star ircfspace/encodify on GitHub"
+            aria-label="Star DanTch/encodify_V2 on GitHub"
             >Star</a
           >
         </span>
       </footer>
     </div>
     <script async defer src="https://buttons.github.io/buttons.js"></script>
-    <script src="script.js?v1.2"></script>
+    <script src="script.js?v2.2"></script>
   </body>
 </html>
